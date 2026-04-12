@@ -273,43 +273,69 @@ main{padding:16px;max-width:480px;margin:0 auto;display:flex;flex-direction:colu
 // ═══════════════════════════════════════════
 // SHAPES LIBRARY
 // ═══════════════════════════════════════════
+// group entries are rendered as section headers, not selectable shapes
 const SHAPES = [
-  // Singles & lines
+  // ── 1 格 ──────────────────────────────────
+  {group:'1 格'},
   {name:'1×1',   cells:[[0,0]]},
+
+  // ── 2 格 ──────────────────────────────────
+  {group:'2 格'},
   {name:'1×2',   cells:[[0,0],[0,1]]},
   {name:'2×1',   cells:[[0,0],[1,0]]},
+
+  // ── 3 格 ──────────────────────────────────
+  {group:'3 格'},
   {name:'1×3',   cells:[[0,0],[0,1],[0,2]]},
   {name:'3×1',   cells:[[0,0],[1,0],[2,0]]},
+
+  // ── 4 格 ──────────────────────────────────
+  {group:'4 格'},
   {name:'1×4',   cells:[[0,0],[0,1],[0,2],[0,3]]},
   {name:'4×1',   cells:[[0,0],[1,0],[2,0],[3,0]]},
-  {name:'1×5',   cells:[[0,0],[0,1],[0,2],[0,3],[0,4]]},
-  {name:'5×1',   cells:[[0,0],[1,0],[2,0],[3,0],[4,0]]},
-  // Squares
   {name:'2×2',   cells:[[0,0],[0,1],[1,0],[1,1]]},
-  {name:'3×3',   cells:[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]]},
-  // 2×3 / 3×2
-  {name:'2×3',   cells:[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]]},
-  {name:'3×2',   cells:[[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]]},
-  // L-shapes
+  // L (4格)
   {name:'L↑',    cells:[[0,0],[1,0],[2,0],[2,1]]},
   {name:'L→',    cells:[[0,0],[0,1],[0,2],[1,0]]},
   {name:'L↓',    cells:[[0,0],[0,1],[1,1],[2,1]]},
   {name:'L←',    cells:[[0,2],[1,0],[1,1],[1,2]]},
-  // J-shapes
+  // J (4格)
   {name:'J↑',    cells:[[0,1],[1,1],[2,0],[2,1]]},
   {name:'J→',    cells:[[0,0],[1,0],[1,1],[1,2]]},
   {name:'J↓',    cells:[[0,0],[0,1],[1,0],[2,0]]},
   {name:'J←',    cells:[[0,0],[0,1],[0,2],[1,2]]},
-  // T-shapes
+  // T (4格)
   {name:'T↓',    cells:[[0,0],[0,1],[0,2],[1,1]]},
   {name:'T→',    cells:[[0,0],[1,0],[1,1],[2,0]]},
   {name:'T↑',    cells:[[0,1],[1,0],[1,1],[1,2]]},
   {name:'T←',    cells:[[0,1],[1,0],[1,1],[2,1]]},
-  // S/Z
+  // S / Z (4格)
   {name:'S',     cells:[[0,1],[0,2],[1,0],[1,1]]},
   {name:'S|',    cells:[[0,0],[1,0],[1,1],[2,1]]},
   {name:'Z',     cells:[[0,0],[0,1],[1,1],[1,2]]},
   {name:'Z|',    cells:[[0,1],[1,0],[1,1],[2,0]]},
+
+  // ── 5 格 ──────────────────────────────────
+  {group:'5 格'},
+  {name:'1×5',   cells:[[0,0],[0,1],[0,2],[0,3],[0,4]]},
+  {name:'5×1',   cells:[[0,0],[1,0],[2,0],[3,0],[4,0]]},
+  // 大L (5格，3橫＋2直)
+  //  XXX      XXX      ..X      X..
+  //  X..      ..X      ..X      X..
+  //  X..      ..X      XXX      XXX
+  {name:'大L①',  cells:[[0,0],[0,1],[0,2],[1,0],[2,0]]},
+  {name:'大L②',  cells:[[0,0],[0,1],[0,2],[1,2],[2,2]]},
+  {name:'大L③',  cells:[[0,2],[1,2],[2,0],[2,1],[2,2]]},
+  {name:'大L④',  cells:[[0,0],[1,0],[2,0],[2,1],[2,2]]},
+
+  // ── 6 格 ──────────────────────────────────
+  {group:'6 格'},
+  {name:'2×3',   cells:[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]]},
+  {name:'3×2',   cells:[[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]]},
+
+  // ── 9 格 ──────────────────────────────────
+  {group:'9 格'},
+  {name:'3×3',   cells:[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]]},
 ];
 
 // ═══════════════════════════════════════════
@@ -564,6 +590,14 @@ function renderLib() {
   const grid = document.getElementById('lib-grid');
   grid.innerHTML = '';
   SHAPES.forEach((shape, idx) => {
+    if (shape.group) {
+      // Section header — spans full width
+      const hdr = document.createElement('div');
+      hdr.style.cssText = 'grid-column:1/-1;font-size:0.68rem;font-weight:700;color:var(--muted);padding:6px 2px 2px;border-top:1px solid var(--border);margin-top:2px';
+      hdr.textContent = shape.group;
+      grid.appendChild(hdr);
+      return;
+    }
     const inUse = selectedPieces.includes(idx);
     const item = document.createElement('div');
     item.className = 'lib-item' + (inUse ? ' in-use' : '');
