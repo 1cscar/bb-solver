@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Block Blast Solver</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1b2a;
+  --surface:#1b2a3b;
+  --surface2:#1e3a5f;
+  --accent:#e94560;
+  --blue:#378ADD;
+  --blue-light:#B5D4F4;
+  --green:#4caf50;
+  --yellow:#ffc107;
+  --red:#ff6b6b;
+  --text:#eaeaea;
+  --muted:#7a8fa6;
+  --border:#2a3f58;
+  --cell-empty:#1e2d4a;
+  --cell-filled:#378ADD;
+  --cell-border:#2a3f58;
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{padding:0 0 40px}
+
+/* ── Header ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;text-align:center}
+header h1{font-size:1.3rem;font-weight:800;letter-spacing:-0.5px}
+header h1 span{color:var(--accent)}
+.subtitle{font-size:0.75rem;color:var(--muted);margin-top:2px}
+
+/* ── Steps bar ── */
+.steps-bar{display:flex;align-items:center;justify-content:center;gap:0;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+.step-item{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;max-width:100px}
+.step-circle{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;background:var(--border);color:var(--muted);transition:.3s}
+.step-circle.active{background:var(--accent);color:#fff}
+.step-circle.done{background:var(--green);color:#fff}
+.step-lbl{font-size:0.65rem;color:var(--muted)}
+.step-lbl.active{color:var(--text)}
+.step-conn{flex:1;height:2px;background:var(--border);max-width:40px;transition:.3s}
+.step-conn.done{background:var(--green)}
+
+/* ── Main content ── */
+main{padding:16px;max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+/* ── Card ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px}
+.card-title{font-size:0.8rem;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Board ── */
+.board-container{display:flex;flex-direction:column;align-items:center;gap:10px}
+#board{
+  display:grid;grid-template-columns:repeat(8,1fr);gap:3px;
+  background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:8px;
+  width:min(320px,90vw);touch-action:none;user-select:none;-webkit-user-select:none
+}
+.cell{
+  aspect-ratio:1;border-radius:5px;background:var(--cell-empty);
+  border:1px solid var(--cell-border);transition:background .07s,border-color .07s;cursor:crosshair
+}
+.cell.filled{background:var(--cell-filled);border-color:#185FA5}
+.cell.hover{background:var(--blue-light);border-color:var(--blue)}
+.cell.p0{background:#ff6b6b;border-color:#cc0000}
+.cell.p1{background:#4caf50;border-color:#1b5e20}
+.cell.p2{background:#ffc107;border-color:#795500}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+.badge{background:var(--surface2);padding:5px 10px;border-radius:20px;font-size:0.78rem;color:var(--muted);font-weight:600}
+.btn{padding:7px 16px;border:none;border-radius:20px;cursor:pointer;font-size:0.82rem;font-weight:700;transition:.2s;white-space:nowrap}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:not(:disabled):hover{background:#c73652}
+.btn-muted{background:var(--surface2);color:var(--text)}
+.btn-muted:hover{background:var(--border)}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:not(:disabled):hover{background:#388e3c}
+.btn-full{width:100%;text-align:center;padding:10px;border-radius:10px;font-size:0.9rem}
+
+/* ── Section visibility ── */
+.section{display:none}
+.section.active{display:flex;flex-direction:column;gap:14px}
+
+/* ── Mini board preview ── */
+.mini-board{
+  display:grid;grid-template-columns:repeat(8,1fr);gap:2px;
+  background:var(--bg);border-radius:8px;padding:5px;
+  width:min(176px,55vw)
+}
+.mini-cell{aspect-ratio:1;border-radius:2px}
+
+/* ── Piece slots ── */
+.slots-row{display:flex;gap:10px;justify-content:center}
+.piece-slot{
+  background:var(--bg);border:2px solid var(--border);border-radius:10px;
+  padding:10px 8px;min-width:88px;min-height:88px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  cursor:pointer;transition:border-color .2s;flex:1;max-width:120px
+}
+.piece-slot:hover{border-color:var(--blue)}
+.piece-slot.selected{border-color:var(--accent)}
+.piece-slot.has-piece{border-color:var(--blue)}
+.slot-lbl{font-size:0.68rem;color:var(--muted);font-weight:600}
+.slot-empty-hint{font-size:0.7rem;color:var(--border);margin-top:auto}
+.slot-shape-name{font-size:0.62rem;color:var(--muted)}
+.slot-clear{font-size:0.62rem;padding:2px 7px;border-radius:8px;background:var(--border);border:none;color:var(--muted);cursor:pointer}
+.slot-clear:hover{color:var(--accent)}
+
+/* ── Shape preview grid ── */
+.shape-grid{display:grid;gap:1px}
+.shape-cell{border-radius:2px}
+
+/* ── Shape library ── */
+.lib-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:7px;
+  max-height:280px;overflow-y:auto;padding:2px
+}
+.lib-item{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:8px 4px 5px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:4px;transition:.2s
+}
+.lib-item:hover{border-color:var(--blue);background:var(--surface2)}
+.lib-item.in-use{border-color:var(--accent)}
+.lib-name{font-size:0.58rem;color:var(--muted);text-align:center}
+
+/* ── Solution board ── */
+.sol-board{
+  display:grid;grid-template-columns:repeat(8,1fr);gap:2px;
+  background:var(--bg);border-radius:10px;padding:6px;
+  width:min(272px,85vw)
+}
+.sol-cell{aspect-ratio:1;border-radius:3px}
+
+/* ── Solution steps ── */
+.sol-step{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg);border-radius:8px;padding:10px;margin-bottom:6px
+}
+.sol-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.78rem;flex-shrink:0}
+.sol-desc{font-size:0.82rem;line-height:1.4}
+.sol-score{text-align:center;font-size:1.05rem;font-weight:700;color:var(--accent);padding:4px}
+.lines-badge{color:var(--green);font-size:0.78rem}
+
+/* ── Spinner ── */
+.spinner{display:none;flex-direction:column;align-items:center;gap:10px;padding:20px}
+.spinner.active{display:flex}
+.spin-ring{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Block Blast <span>Solver</span></h1>
+  <div class="subtitle">自動計算最佳放置策略</div>
+</header>
+
+<div class="steps-bar">
+  <div class="step-item">
+    <div class="step-circle active" id="sc1">1</div>
+    <div class="step-lbl active" id="sl1">盤面</div>
+  </div>
+  <div class="step-conn" id="conn1"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc2">2</div>
+    <div class="step-lbl" id="sl2">圖形</div>
+  </div>
+  <div class="step-conn" id="conn2"></div>
+  <div class="step-item">
+    <div class="step-circle" id="sc3">3</div>
+    <div class="step-lbl" id="sl3">解法</div>
+  </div>
+</div>
+
+<main>
+
+<!-- ════ STEP 1: Board ════ -->
+<div id="sec1" class="section active">
+  <div class="card">
+    <div class="card-title">設定初始盤面</div>
+    <div class="board-container">
+      <div class="toolbar">
+        <span class="badge" id="mode-badge">✏️ 塗色</span>
+        <span class="badge" id="count-badge">0 / 64</span>
+        <button class="btn btn-muted" onclick="toggleMode()">切換模式</button>
+        <button class="btn btn-muted" onclick="clearAll()">清除</button>
+      </div>
+      <div id="board"></div>
+      <button class="btn btn-accent btn-full" onclick="gotoStep2()">下一步：選擇圖形 →</button>
+    </div>
+  </div>
+  <div class="card" style="font-size:0.78rem;color:var(--muted);line-height:1.6">
+    <b style="color:var(--text)">操作說明</b><br>
+    拖曳 / 滑動填色 · 起點空格→塗色 · 起點已填→擦除<br>
+    填好目前遊戲盤面後按「下一步」
+  </div>
+</div>
+
+<!-- ════ STEP 2: Pieces ════ -->
+<div id="sec2" class="section">
+  <div class="card">
+    <div class="card-title">目前盤面</div>
+    <div style="display:flex;justify-content:center">
+      <div class="mini-board" id="mini-board"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">選擇三個圖形</div>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px">點選槽位，再從圖形庫點選形狀</p>
+    <div class="slots-row" id="slots-row"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">圖形庫</div>
+    <div class="lib-grid" id="lib-grid"></div>
+  </div>
+
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-muted" style="flex:1" onclick="gotoStep1()">← 返回盤面</button>
+    <button class="btn btn-accent" style="flex:2" id="solve-btn" onclick="startSolve()" disabled>計算最佳解法 →</button>
+  </div>
+</div>
+
+<!-- ════ STEP 3: Solution ════ -->
+<div id="sec3" class="section">
+  <div class="spinner" id="spinner">
+    <div class="spin-ring"></div>
+    <span style="font-size:0.82rem;color:var(--muted)">計算中…</span>
+  </div>
+
+  <div id="sol-content" style="display:flex;flex-direction:column;gap:14px">
+    <div class="card" id="sol-board-card">
+      <div class="card-title">最佳放置方式</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div class="sol-board" id="sol-board"></div>
+        <div style="display:flex;gap:12px;font-size:0.72rem;color:var(--muted)">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#378ADD;margin-right:3px"></span>原有</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff6b6b;margin-right:3px"></span>圖形1</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4caf50;margin-right:3px"></span>圖形2</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ffc107;margin-right:3px"></span>圖形3</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">步驟說明</div>
+      <div id="sol-steps"></div>
+      <div id="sol-score" class="sol-score"></div>
+    </div>
+
+    <div id="no-sol-msg" style="display:none;text-align:center;color:var(--accent);font-size:0.85rem;padding:10px">
+      ⚠️ 無法同時放置所有三個圖形，請重新選擇圖形
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-muted" style="flex:1" onclick="gotoStep2()">← 重新選擇</button>
+      <button class="btn btn-green" style="flex:2" id="apply-btn" onclick="applySolution()">套用解法，繼續下一步 ▶</button>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════
+// SHAPES LIBRARY
+// ═══════════════════════════════════════════
+const SHAPES = [
+  // Singles & lines
+  {name:'1×1',   cells:[[0,0]]},
+  {name:'1×2',   cells:[[0,0],[0,1]]},
+  {name:'2×1',   cells:[[0,0],[1,0]]},
+  {name:'1×3',   cells:[[0,0],[0,1],[0,2]]},
+  {name:'3×1',   cells:[[0,0],[1,0],[2,0]]},
+  {name:'1×4',   cells:[[0,0],[0,1],[0,2],[0,3]]},
+  {name:'4×1',   cells:[[0,0],[1,0],[2,0],[3,0]]},
+  {name:'1×5',   cells:[[0,0],[0,1],[0,2],[0,3],[0,4]]},
+  {name:'5×1',   cells:[[0,0],[1,0],[2,0],[3,0],[4,0]]},
+  // Squares
+  {name:'2×2',   cells:[[0,0],[0,1],[1,0],[1,1]]},
+  {name:'3×3',   cells:[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]]},
+  // 2×3 / 3×2
+  {name:'2×3',   cells:[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]]},
+  {name:'3×2',   cells:[[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]]},
+  // L-shapes
+  {name:'L↑',    cells:[[0,0],[1,0],[2,0],[2,1]]},
+  {name:'L→',    cells:[[0,0],[0,1],[0,2],[1,0]]},
+  {name:'L↓',    cells:[[0,0],[0,1],[1,1],[2,1]]},
+  {name:'L←',    cells:[[0,2],[1,0],[1,1],[1,2]]},
+  // J-shapes
+  {name:'J↑',    cells:[[0,1],[1,1],[2,0],[2,1]]},
+  {name:'J→',    cells:[[0,0],[1,0],[1,1],[1,2]]},
+  {name:'J↓',    cells:[[0,0],[0,1],[1,0],[2,0]]},
+  {name:'J←',    cells:[[0,0],[0,1],[0,2],[1,2]]},
+  // T-shapes
+  {name:'T↓',    cells:[[0,0],[0,1],[0,2],[1,1]]},
+  {name:'T→',    cells:[[0,0],[1,0],[1,1],[2,0]]},
+  {name:'T↑',    cells:[[0,1],[1,0],[1,1],[1,2]]},
+  {name:'T←',    cells:[[0,1],[1,0],[1,1],[2,1]]},
+  // S/Z
+  {name:'S',     cells:[[0,1],[0,2],[1,0],[1,1]]},
+  {name:'S|',    cells:[[0,0],[1,0],[1,1],[2,1]]},
+  {name:'Z',     cells:[[0,0],[0,1],[1,1],[1,2]]},
+  {name:'Z|',    cells:[[0,1],[1,0],[1,1],[2,0]]},
+];
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const SZ = 8;
+let boardState = newBoard();
+let selectedPieces = [null, null, null]; // shape indices
+let activeSlot = 0;
+let currentSolution = null;
+
+function newBoard() {
+  return Array.from({length:SZ}, () => Array(SZ).fill(0));
+}
+function copyBoard(b) {
+  return b.map(r => [...r]);
+}
+
+// ═══════════════════════════════════════════
+// MAIN BOARD (Step 1)
+// ═══════════════════════════════════════════
+const boardEl = document.getElementById('board');
+const countBadge = document.getElementById('count-badge');
+const modeBadge  = document.getElementById('mode-badge');
+const boardCells = [];
+let filledSet = new Set();
+let eraseMode = false;
+let dragging = false;
+let dragErase = false;
+
+for (let r = 0; r < SZ; r++) {
+  for (let c = 0; c < SZ; c++) {
+    const d = document.createElement('div');
+    d.className = 'cell';
+    d.dataset.idx = r * SZ + c;
+    boardEl.appendChild(d);
+    boardCells.push(d);
+  }
+}
+
+function updateCount() {
+  countBadge.textContent = filledSet.size + ' / 64';
+}
+
+function setCell(idx, erase) {
+  const r = Math.floor(idx / SZ), c = idx % SZ;
+  if (erase) {
+    filledSet.delete(idx);
+    boardCells[idx].classList.remove('filled');
+    boardState[r][c] = 0;
+  } else {
+    filledSet.add(idx);
+    boardCells[idx].classList.add('filled');
+    boardState[r][c] = 1;
+  }
+  updateCount();
+}
+
+function idxFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (el && el.dataset && el.dataset.idx != null) return +el.dataset.idx;
+  return -1;
+}
+
+function clearHovers() { boardCells.forEach(c => c.classList.remove('hover')); }
+
+// Mouse
+boardEl.addEventListener('mousedown', e => {
+  e.preventDefault();
+  dragging = true;
+  const idx = idxFromPoint(e.clientX, e.clientY);
+  if (idx < 0) return;
+  dragErase = eraseMode || filledSet.has(idx);
+  setCell(idx, dragErase);
+});
+boardEl.addEventListener('mousemove', e => {
+  clearHovers();
+  const idx = idxFromPoint(e.clientX, e.clientY);
+  if (!dragging) {
+    if (idx >= 0 && !filledSet.has(idx)) boardCells[idx].classList.add('hover');
+    return;
+  }
+  if (idx >= 0) setCell(idx, dragErase);
+});
+boardEl.addEventListener('mouseleave', clearHovers);
+document.addEventListener('mouseup', () => { dragging = false; });
+
+// Touch
+boardEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  dragging = true;
+  const t = e.touches[0];
+  const idx = idxFromPoint(t.clientX, t.clientY);
+  if (idx < 0) return;
+  dragErase = eraseMode || filledSet.has(idx);
+  setCell(idx, dragErase);
+}, {passive:false});
+boardEl.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!dragging) return;
+  const t = e.touches[0];
+  const idx = idxFromPoint(t.clientX, t.clientY);
+  if (idx >= 0) setCell(idx, dragErase);
+}, {passive:false});
+boardEl.addEventListener('touchend', () => { dragging = false; });
+
+function toggleMode() {
+  eraseMode = !eraseMode;
+  modeBadge.textContent = eraseMode ? '🧹 擦除' : '✏️ 塗色';
+}
+function clearAll() {
+  filledSet.clear();
+  boardCells.forEach(c => c.classList.remove('filled','hover','p0','p1','p2'));
+  boardState = newBoard();
+  updateCount();
+}
+
+// Sync boardState → visual board (called when returning to step 1)
+function syncMainBoard() {
+  filledSet.clear();
+  boardCells.forEach((cell, idx) => {
+    const r = Math.floor(idx / SZ), c = idx % SZ;
+    cell.classList.remove('filled','hover','p0','p1','p2');
+    if (boardState[r][c]) { filledSet.add(idx); cell.classList.add('filled'); }
+  });
+  updateCount();
+}
+
+// ═══════════════════════════════════════════
+// STEP NAVIGATION
+// ═══════════════════════════════════════════
+function setStep(n) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec' + n).classList.add('active');
+  [1,2,3].forEach(i => {
+    const c = document.getElementById('sc'+i);
+    const l = document.getElementById('sl'+i);
+    c.classList.remove('active','done');
+    l.classList.remove('active');
+    if (i < n) { c.classList.add('done'); }
+    else if (i === n) { c.classList.add('active'); l.classList.add('active'); }
+  });
+  document.getElementById('conn1').classList.toggle('done', n > 1);
+  document.getElementById('conn2').classList.toggle('done', n > 2);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function gotoStep1() {
+  syncMainBoard();
+  setStep(1);
+}
+
+function gotoStep2() {
+  renderMiniBoard();
+  renderSlots();
+  renderLib();
+  checkSolveBtn();
+  setStep(2);
+}
+
+function gotoStep3() {
+  setStep(3);
+}
+
+// ═══════════════════════════════════════════
+// MINI BOARD PREVIEW
+// ═══════════════════════════════════════════
+function renderMiniBoard(overrideBoard) {
+  const b = overrideBoard || boardState;
+  const el = document.getElementById('mini-board');
+  el.innerHTML = '';
+  for (let r = 0; r < SZ; r++) {
+    for (let c = 0; c < SZ; c++) {
+      const d = document.createElement('div');
+      d.className = 'mini-cell';
+      const cs = Math.floor((Math.min(176, window.innerWidth * 0.55) - 10) / SZ) - 2;
+      d.style.cssText = `width:${cs}px;height:${cs}px;border-radius:2px;background:${b[r][c] ? '#378ADD' : '#1e2d4a'}`;
+      el.appendChild(d);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// SHAPE PREVIEW HELPER
+// ═══════════════════════════════════════════
+function shapeBounds(cells) {
+  const rs = cells.map(c => c[0]), cs = cells.map(c => c[1]);
+  return {rows: Math.max(...rs)+1, cols: Math.max(...cs)+1};
+}
+
+function makeShapePreview(cells, cellPx, highlightColor) {
+  const {rows, cols} = shapeBounds(cells);
+  const grid = document.createElement('div');
+  grid.className = 'shape-grid';
+  grid.style.cssText = `grid-template-columns:repeat(${cols},${cellPx}px);gap:1px`;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const on = cells.some(([cr,cc]) => cr===r && cc===c);
+      const d = document.createElement('div');
+      d.className = 'shape-cell';
+      d.style.cssText = `width:${cellPx}px;height:${cellPx}px;border-radius:2px;background:${on ? (highlightColor||'#378ADD') : 'transparent'}`;
+      grid.appendChild(d);
+    }
+  }
+  return grid;
+}
+
+// ═══════════════════════════════════════════
+// PIECE SLOTS
+// ═══════════════════════════════════════════
+function renderSlots() {
+  const row = document.getElementById('slots-row');
+  row.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'piece-slot' +
+      (i === activeSlot ? ' selected' : '') +
+      (selectedPieces[i] !== null ? ' has-piece' : '');
+    slot.onclick = () => { activeSlot = i; renderSlots(); };
+
+    const lbl = document.createElement('div');
+    lbl.className = 'slot-lbl';
+    lbl.textContent = '圖形 ' + (i+1);
+    slot.appendChild(lbl);
+
+    if (selectedPieces[i] !== null) {
+      const shape = SHAPES[selectedPieces[i]];
+      slot.appendChild(makeShapePreview(shape.cells, 9));
+      const nm = document.createElement('div');
+      nm.className = 'slot-shape-name';
+      nm.textContent = shape.name;
+      slot.appendChild(nm);
+      const clr = document.createElement('button');
+      clr.className = 'slot-clear';
+      clr.textContent = '✕ 清除';
+      clr.onclick = e => { e.stopPropagation(); selectedPieces[i] = null; renderSlots(); renderLib(); checkSolveBtn(); };
+      slot.appendChild(clr);
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'slot-empty-hint';
+      hint.textContent = '未選取';
+      slot.appendChild(hint);
+    }
+    row.appendChild(slot);
+  }
+}
+
+// ═══════════════════════════════════════════
+// SHAPE LIBRARY
+// ═══════════════════════════════════════════
+function renderLib() {
+  const grid = document.getElementById('lib-grid');
+  grid.innerHTML = '';
+  SHAPES.forEach((shape, idx) => {
+    const inUse = selectedPieces.includes(idx);
+    const item = document.createElement('div');
+    item.className = 'lib-item' + (inUse ? ' in-use' : '');
+    item.onclick = () => pickShape(idx);
+    item.appendChild(makeShapePreview(shape.cells, 8));
+    const nm = document.createElement('div');
+    nm.className = 'lib-name';
+    nm.textContent = shape.name;
+    item.appendChild(nm);
+    grid.appendChild(item);
+  });
+}
+
+function pickShape(idx) {
+  selectedPieces[activeSlot] = idx;
+  // Auto-advance to next empty slot
+  const next = [0,1,2].find(i => i !== activeSlot && selectedPieces[i] === null);
+  if (next !== undefined) activeSlot = next;
+  renderSlots();
+  renderLib();
+  checkSolveBtn();
+}
+
+function checkSolveBtn() {
+  document.getElementById('solve-btn').disabled = selectedPieces.some(p => p === null);
+}
+
+// ═══════════════════════════════════════════
+// SOLVER
+// ═══════════════════════════════════════════
+function canPlace(board, cells, r, c) {
+  for (const [dr, dc] of cells) {
+    const nr = r+dr, nc = c+dc;
+    if (nr<0||nr>=SZ||nc<0||nc>=SZ||board[nr][nc]) return false;
+  }
+  return true;
+}
+
+function place(board, cells, r, c) {
+  const b = copyBoard(board);
+  for (const [dr, dc] of cells) b[r+dr][c+dc] = 1;
+  return b;
+}
+
+function clearLines(board) {
+  const b = copyBoard(board);
+  let cleared = 0;
+  const cRows=[], cCols=[];
+  for (let r = 0; r < SZ; r++) if (b[r].every(v=>v)) { cRows.push(r); cleared++; }
+  for (let c = 0; c < SZ; c++) if (b.every(row=>row[c])) { cCols.push(c); cleared++; }
+  for (const r of cRows) b[r].fill(0);
+  for (const c of cCols) b.forEach(row => row[c]=0);
+  return {board:b, cleared, cRows, cCols};
+}
+
+function validPlacements(board, cells) {
+  const out = [];
+  for (let r = 0; r < SZ; r++)
+    for (let c = 0; c < SZ; c++)
+      if (canPlace(board, cells, r, c)) out.push([r, c]);
+  return out;
+}
+
+function perms3() {
+  return [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+}
+
+function solve(board, pieces) {
+  let best = null;
+  const t0 = Date.now();
+
+  for (const perm of perms3()) {
+    const ps = perm.map(i => pieces[i]);
+    for (const [r1,c1] of validPlacements(board, ps[0])) {
+      const b1 = place(board, ps[0], r1, c1);
+      const cl1 = clearLines(b1);
+      for (const [r2,c2] of validPlacements(cl1.board, ps[1])) {
+        const b2 = place(cl1.board, ps[1], r2, c2);
+        const cl2 = clearLines(b2);
+        for (const [r3,c3] of validPlacements(cl2.board, ps[2])) {
+          const b3 = place(cl2.board, ps[2], r3, c3);
+          const cl3 = clearLines(b3);
+          const score =
+            ps[0].length + cl1.cleared*20 +
+            ps[1].length + cl2.cleared*20 +
+            ps[2].length + cl3.cleared*20;
+          if (!best || score > best.score) {
+            best = {
+              score,
+              steps: [
+                {pieceIdx:perm[0], piece:ps[0], r:r1, c:c1, cl:cl1},
+                {pieceIdx:perm[1], piece:ps[1], r:r2, c:c2, cl:cl2},
+                {pieceIdx:perm[2], piece:ps[2], r:r3, c:c3, cl:cl3},
+              ],
+              finalBoard: cl3.board
+            };
+          }
+        }
+        // Time limit: bail after 3 seconds
+        if (Date.now() - t0 > 3000 && best) return best;
+      }
+    }
+  }
+  return best;
+}
+
+function startSolve() {
+  // Show spinner
+  document.getElementById('spinner').classList.add('active');
+  document.getElementById('sol-content').style.display = 'none';
+  gotoStep3();
+
+  // Defer to let browser render
+  setTimeout(() => {
+    const pieces = selectedPieces.map(idx => SHAPES[idx].cells);
+    currentSolution = solve(boardState, pieces);
+    renderSolution(currentSolution);
+    document.getElementById('spinner').classList.remove('active');
+    document.getElementById('sol-content').style.display = 'flex';
+  }, 30);
+}
+
+// ═══════════════════════════════════════════
+// RENDER SOLUTION
+// ═══════════════════════════════════════════
+const PIECE_COLORS = ['#ff6b6b','#4caf50','#ffc107'];
+const PIECE_NAMES  = ['紅色(1)','綠色(2)','黃色(3)'];
+
+function renderSolution(sol) {
+  const noMsg = document.getElementById('no-sol-msg');
+  const applyBtn = document.getElementById('apply-btn');
+  const stepsEl = document.getElementById('sol-steps');
+  const scoreEl = document.getElementById('sol-score');
+  const solBoardEl = document.getElementById('sol-board');
+
+  if (!sol) {
+    noMsg.style.display = 'block';
+    applyBtn.disabled = true;
+    document.getElementById('sol-board-card').style.display = 'none';
+    stepsEl.innerHTML = '';
+    scoreEl.textContent = '';
+    return;
+  }
+
+  noMsg.style.display = 'none';
+  applyBtn.disabled = false;
+  document.getElementById('sol-board-card').style.display = '';
+
+  // Build color map for the board
+  // Show original board + all 3 placements (colors overwrite)
+  const colors = boardState.map(row => row.map(v => v ? '#378ADD' : null));
+  for (let s = 0; s < 3; s++) {
+    const {piece, r, c} = sol.steps[s];
+    for (const [dr,dc] of piece) colors[r+dr][c+dc] = PIECE_COLORS[s];
+  }
+
+  solBoardEl.innerHTML = '';
+  for (let r = 0; r < SZ; r++) {
+    for (let c = 0; c < SZ; c++) {
+      const d = document.createElement('div');
+      d.className = 'sol-cell';
+      d.style.cssText = `aspect-ratio:1;border-radius:3px;background:${colors[r][c]||'#1e2d4a'};border:1px solid ${colors[r][c]?'transparent':'#2a3a5a'}`;
+      solBoardEl.appendChild(d);
+    }
+  }
+
+  // Steps
+  stepsEl.innerHTML = '';
+  for (let s = 0; s < 3; s++) {
+    const {pieceIdx, r, c, cl} = sol.steps[s];
+    const shapeName = SHAPES[pieceIdx].name;
+    const div = document.createElement('div');
+    div.className = 'sol-step';
+    const lineInfo = cl.cleared > 0 ? `<span class="lines-badge">＋消除 ${cl.cleared} 條線</span>` : '';
+    div.innerHTML = `
+      <div class="sol-num" style="background:${PIECE_COLORS[s]};color:${s===2?'#333':'#fff'}">${s+1}</div>
+      <div class="sol-desc">
+        <b>${PIECE_NAMES[s]}</b> · ${shapeName}<br>
+        放在第 ${r+1} 行、第 ${c+1} 列 ${lineInfo}
+      </div>`;
+    stepsEl.appendChild(div);
+  }
+
+  const totalLines = sol.steps.reduce((sum,s) => sum + s.cl.cleared, 0);
+  scoreEl.textContent = `預估得分 ${sol.score} 分${totalLines ? '・消除 '+totalLines+' 條線' : ''}`;
+}
+
+// ═══════════════════════════════════════════
+// APPLY SOLUTION
+// ═══════════════════════════════════════════
+function applySolution() {
+  if (!currentSolution) return;
+
+  boardState = currentSolution.finalBoard;
+  selectedPieces = [null, null, null];
+  activeSlot = 0;
+  currentSolution = null;
+
+  renderMiniBoard();
+  renderSlots();
+  renderLib();
+  checkSolveBtn();
+  setStep(2);
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+renderSlots();
+renderLib();
+</script>
+</body>
+</html>
